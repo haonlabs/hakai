@@ -21,11 +21,15 @@ function isStale(generatedAt: string): boolean {
 	return diffDays > STALE_DAYS;
 }
 
-/** Strip any absolute path segments from an error message before sending to client. */
+/** Strip absolute paths from an error message before sending to client.
+ * Only replaces paths that start with '/' at the beginning of the string
+ * or are preceded by whitespace, a quote, or an opening parenthesis.
+ * Relative paths like "inbox/foo.md" are left intact.
+ */
 function sanitizeError(err: unknown): string {
 	const msg = err instanceof Error ? err.message : String(err);
-	// Remove anything that looks like an absolute path (starts with /)
-	return msg.replace(/\/[^\s"']+/g, '[path]');
+	// Match: start-of-string OR (space | " | ' | () followed by /path
+	return msg.replace(/(^|[\s"('`])(\/[^\s"')]+)/g, '$1[path]');
 }
 
 // ---------------------------------------------------------------------------

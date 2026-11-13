@@ -7,6 +7,7 @@
 import type { AuditItem, Verdict } from './types.js';
 
 const VERDICT_ORDER: Record<Verdict, number> = { usang: 0, duplikat: 1, keep: 2 };
+const VALID_VERDICTS = new Set<string>(['usang', 'duplikat', 'keep']);
 
 /** Determine source category from a relative path. */
 function getSource(path: string): 'memory' | 'vault' {
@@ -14,7 +15,10 @@ function getSource(path: string): 'memory' | 'vault' {
 }
 
 export interface FilterParams {
-	/** Filter by verdict (single value). */
+	/**
+	 * Filter by verdict. Only 'usang', 'duplikat', or 'keep' activate the filter.
+	 * Any other value (e.g. 'all', 'unreviewed', '', garbage) is treated as no filter.
+	 */
 	verdict?: string;
 	/**
 	 * Filter by source: `vault`, `memory`, or comma-separated e.g. `vault,memory`.
@@ -47,8 +51,8 @@ export function applyFilters(items: AuditItem[], params: FilterParams): AuditIte
 	const qLower = q ? q.toLowerCase() : null;
 
 	let result = items.filter((item) => {
-		// verdict filter
-		if (verdict && item.verdict !== verdict) return false;
+		// verdict filter: only active when value is a known verdict
+		if (verdict && VALID_VERDICTS.has(verdict) && item.verdict !== verdict) return false;
 
 		// source filter
 		if (allowedSources !== null) {

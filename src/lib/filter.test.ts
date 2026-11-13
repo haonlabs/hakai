@@ -63,9 +63,28 @@ describe('applyFilters – verdict filter', () => {
 		expect(result).toHaveLength(1);
 	});
 
-	it('returns empty list for unknown verdict', () => {
-		const result = applyFilters(ITEMS, { verdict: 'unknown', hideReviewed: '0' });
-		expect(result).toHaveLength(0);
+	it('verdict=unreviewed → no verdict filter (returns all)', () => {
+		const all = applyFilters(ITEMS, { hideReviewed: '0' });
+		const result = applyFilters(ITEMS, { verdict: 'unreviewed', hideReviewed: '0' });
+		expect(result).toHaveLength(all.length);
+	});
+
+	it('verdict=all → no verdict filter (returns all)', () => {
+		const all = applyFilters(ITEMS, { hideReviewed: '0' });
+		const result = applyFilters(ITEMS, { verdict: 'all', hideReviewed: '0' });
+		expect(result).toHaveLength(all.length);
+	});
+
+	it('verdict=garbage → no verdict filter (returns all)', () => {
+		const all = applyFilters(ITEMS, { hideReviewed: '0' });
+		const result = applyFilters(ITEMS, { verdict: 'garbage_xyz', hideReviewed: '0' });
+		expect(result).toHaveLength(all.length);
+	});
+
+	it('verdict="" (empty string) → no verdict filter (returns all)', () => {
+		const all = applyFilters(ITEMS, { hideReviewed: '0' });
+		const result = applyFilters(ITEMS, { verdict: '', hideReviewed: '0' });
+		expect(result).toHaveLength(all.length);
 	});
 });
 
