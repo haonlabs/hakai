@@ -29,7 +29,6 @@ Config: `.env` → `VAULT_ROOT=/Users/haon/Documents/vault`. Dev: `vite dev --ho
 | `lib/audit.ts` | `readAudit()`, `markReviewed(path)`, `removeItem(path)`; validasi bentuk JSON |
 | `lib/vault.ts` | `readNote(path)`, `backlinks(path)` (scan `[[nama]]` di semua `.md`), `deleteNote(path)` (realpath + guard, hapus file, hapus baris di `index.md` yang memuat `[[nama]]`) |
 | `src/routes/+page.svelte` + `+page.server.ts` | Daftar + filter (query: `verdict`, `source`, `q`) |
-| `src/routes/note/[...path]/+page.svelte` | Detail catatan |
 | `+page.server.ts` (actions) | `keep`, `delete`, `bulk` |
 | `lib/components/NoteTable.svelte` | Tabel dengan checkbox (state seleksi di komponen) |
 | `lib/components/ConfirmDelete.svelte` | Dialog konfirmasi (`<dialog>` native) |
@@ -62,7 +61,7 @@ Mobile tidak jadi target (tool lokal); layout satu kolom saja bila sempit.
 - Delete = tombol merah, hanya satu di panel detail; Keep = tombol netral. Tombol Delete massal baru aktif jika ada yang dipilih.
 
 ## Interaksi & state
-- Klik baris → detail (URL `/note/...`, bisa di-share ke diri sendiri/refresh).
+- Klik baris → detail di panel bawah tabel (URL `/?note=<path>`, bertahan saat refresh; diubah 13 Nov 2026 dari route `/note/...` karena layout satu halaman dua panel).
 - Setelah Keep/Delete, otomatis lompat ke baris berikutnya di filter yang sama (alur review cepat). Pintasan: `j/k` navigasi, `x` pilih, `d` Delete, `e` Keep.
 - Dialog Delete: tampilkan path penuh, jumlah backlinks (dengan daftar), tombol "Hapus permanen" (merah). Massal: harus mengetik jumlah item untuk mengaktifkan tombol.
 - Banner kuning bila `audit.json` lebih lama dari 14 hari atau ada file `.md` di vault yang tidak ada di audit ("N file belum dinilai — minta Claude audit ulang").

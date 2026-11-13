@@ -8,7 +8,7 @@ Urutan dan dependensi (tag ukuran S/M/L, 13 Nov 2026):
 | 02 | lib vault + audit + tes | M | 01 | - |
 | 03 | server: load + form actions | M | 02 | 04 |
 | 04 | UI Svelte (daftar, detail, dialog) | M | 02 (tipe), kontrak di bawah | 03 |
-| 05 | e2e + README | S | 03, 04 | - |
+| 05 | e2e (README oleh Claude) | S | 03, 04 | - |
 
 Tiap brief mandiri. Baca `CLAUDE.md`, `docs/PRD.md`, `docs/Design.md` di root project dulu.
 
@@ -34,9 +34,9 @@ export interface DeleteResult { deleted: string; indexLinesRemoved: number; brok
 `src/lib/vault.ts`: `readNote(path): Promise<NoteDetail>`, `listUnaudited(audit): Promise<string[]>`, `backlinks(path): Promise<Backlink[]>`, `deleteNote(path): Promise<DeleteResult>`.
 
 Route & action (brief 03 membuat, brief 04 memakai):
-- `GET /` load → `{ audit: {generatedAt, stale: boolean, unaudited: number}, counts: {all, usang, duplikat, keep, unreviewed}, items: AuditItem[] }`; query `verdict`, `source` (`vault`|`memory`, boleh dua-duanya dipisah koma), `q`, `hideReviewed` (`1`/`0`, default `1`).
-- `GET /note/[...path]` load → `NoteDetail`.
-- Form actions di `/`: `?/keep` (field `path`), `?/delete` (field `path`), `?/bulk` (field `op` = `keep`|`delete`, field `paths` berulang). Hasil `fail(400, {message})` bila ditolak.
+- `GET /` load → `{ audit: {generatedAt, stale: boolean, unaudited: number}, counts: {all, usang, duplikat, keep, unreviewed}, items: AuditItem[], detail: NoteDetail | null, detailError: string | null }`; query `verdict`, `source` (`vault`|`memory`, boleh dua-duanya dipisah koma), `q`, `hideReviewed` (`1`/`0`, default `1`), `note` (path catatan terpilih; bila ada dan lolos guard → `detail` terisi; bila ditolak guard/tidak ada → `detail: null` dan `detailError` berisi pesan, halaman tetap 200).
+- Tidak ada route `/note/...` (diputuskan 13 Nov 2026: panel detail ada di halaman yang sama, pilihan baris lewat `?note=`).
+- Form actions di `/`: `?/keep` (field `path`), `?/delete` (field `path`), `?/bulk` (field `op` = `keep`|`delete`, field `paths` berulang). Hasil `fail(400, {message})` bila ditolak. Hasil sukses: `keep` → `{ kept: string }`, `delete` → `DeleteResult`, `bulk` → `{ kept: string[], deleted: string[], failed: {path, message}[] }` (hanya array sesuai `op` yang berisi).
 - Sumber ("source"): `memory` jika path diawali `claude-memory/`, selain itu `vault`.
 
 ## Desain visual (ringkas untuk eksekutor tanpa Figma)
