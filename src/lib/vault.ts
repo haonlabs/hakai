@@ -20,6 +20,7 @@ import type { Audit, AuditItem, Backlink, NoteDetail, DeleteResult } from './typ
 // "name" = everything up to the first | # or ]]
 // ---------------------------------------------------------------------------
 const WIKILINK_RE = /\[\[([^\]|#]+?)(?:[|#][^\]]*?)?\]\]/g;
+const CLAUDE_MEMORY_NOTE_RE = /^claude-memory\/[^/]+\/[^/]+\.md$/;
 
 // ---------------------------------------------------------------------------
 // Internal helpers
@@ -36,6 +37,64 @@ async function writeAtomic(filePath: string, data: string): Promise<void> {
 		await fs.unlink(tmp).catch(() => undefined);
 		throw err;
 	}
+}
+
+/**
+ * Remove lines linking to a note from targetFilePath.
+ * A line is considered linking if it contains either:
+ *  - a wikilink to the note stem (e.g. [[x]], [[x|alias]], [[x#h]]), or
+ *  - a markdown link ](fileName) or ](./fileName) with exact matching filename (case-sensitive)
+ *
+ * Rewrites the file atomically only if at least one line was removed.
+ * Ignores ENOENT if targetFilePath does not exist.
+ * Preserves other lines as-is, including trailing newline.
+ */
+async function removePointersFromFile(targetFilePath: string, relPath: string): Promise<number> {
+	let content: string;
+	try {
+		content = await fs.readFile(targetFilePath, 'utf8');
+	} catch (err: unknown) {
+		const e = err as NodeJS.ErrnoException;
+		if (e.code === 'ENOENT') return 0;
+		throw err;
+	}
+
+	const targetStem = basename(relPath, '.md').toLowerCase();
+	const fileName = basename(relPath);
+	const md1 = `](${fileName})`;
+	const md2 = `](./${fileName})`;
+
+	const lines = content.split('\n');
+	const kept: string[] = [];
+	let removedCount = 0;
+
+	for (const line of lines) {
+		let lineHasLink = line.includes(md1) || line.includes(md2);
+
+		if (!lineHasLink) {
+			WIKILINK_RE.lastIndex = 0;
+			let m: RegExpExecArray | null;
+			while ((m = WIKILINK_RE.exec(line)) !== null) {
+				const linkStem = basename(m[1].trim(), '.md').toLowerCase();
+				if (linkStem === targetStem) {
+					lineHasLink = true;
+					break;
+				}
+			}
+		}
+
+		if (lineHasLink) {
+			removedCount++;
+		} else {
+			kept.push(line);
+		}
+	}
+
+	if (removedCount > 0) {
+		await writeAtomic(targetFilePath, kept.join('\n'));
+	}
+
+	return removedCount;
 }
 
 /**
@@ -271,42 +330,16 @@ export async function deleteNote(
 		// Already gone – continue to clean up index.md and audit
 	}
 
-	// 4. Clean up index.md: remove all lines containing a wikilink to this note
-	let indexLinesRemoved = 0;
+	// 4. Clean up pointers in index.md and (if applicable) MEMORY.md
 	const indexAbs = join(vaultRoot, 'index.md');
-	const targetStem = basename(relPath, '.md').toLowerCase();
+	let indexLinesRemoved = await removePointersFromFile(indexAbs, relPath);
 
-	try {
-		const indexContent = await fs.readFile(indexAbs, 'utf8');
-		const lines = indexContent.split('\n');
-		const kept: string[] = [];
+	const isClaudeMemoryNote =
+		CLAUDE_MEMORY_NOTE_RE.test(relPath) && basename(relPath) !== 'MEMORY.md';
 
-		for (const line of lines) {
-			// Check if the line references this note via any wikilink form
-			WIKILINK_RE.lastIndex = 0;
-			let lineHasLink = false;
-			let m: RegExpExecArray | null;
-			while ((m = WIKILINK_RE.exec(line)) !== null) {
-				const linkStem = basename(m[1].trim(), '.md').toLowerCase();
-				if (linkStem === targetStem) {
-					lineHasLink = true;
-					break;
-				}
-			}
-			if (lineHasLink) {
-				indexLinesRemoved++;
-			} else {
-				kept.push(line);
-			}
-		}
-
-		if (indexLinesRemoved > 0) {
-			await writeAtomic(indexAbs, kept.join('\n'));
-		}
-	} catch (err: unknown) {
-		const e = err as NodeJS.ErrnoException;
-		if (e.code !== 'ENOENT') throw err;
-		// No index.md – that's fine
+	if (isClaudeMemoryNote) {
+		const memoryAbs = join(vaultRoot, dirname(relPath), 'MEMORY.md');
+		indexLinesRemoved += await removePointersFromFile(memoryAbs, relPath);
 	}
 
 	// 5. removeItem from audit

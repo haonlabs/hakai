@@ -5,7 +5,7 @@
  * No access to /Users/haon/Documents/vault or any real vault.
  */
 
-import { describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import { promises as fs } from 'node:fs';
 import { join } from 'node:path';
 import { backlinks, listUnaudited, deleteNote, readNote } from './vault.js';
@@ -330,6 +330,159 @@ describe('deleteNote', () => {
 		await expect(deleteNote('evil.md', vaultRoot, auditFile)).rejects.toThrow(/symlink|outside/i);
 		// Confirm the target file still exists (not deleted)
 		await expect(fs.access(outsideFile)).resolves.toBeUndefined();
+	});
+
+	it('cleans markdown pointer from MEMORY.md in same project folder and leaves other projects intact', async () => {
+		await writeNote('claude-memory/p1/a.md', '# Memory Note A');
+		await writeNote('claude-memory/p1/b.md', '# Memory Note B');
+		await writeNote(
+			'claude-memory/p1/MEMORY.md',
+			'# Project 1 Memory\n- [a](a.md) — catatan a\n- [b](b.md) — catatan b\n'
+		);
+		await writeNote(
+			'claude-memory/p2/MEMORY.md',
+			'# Project 2 Memory\n- [a](a.md) — catatan a in p2\n'
+		);
+		await writeNote('index.md', '- [[a]]\n');
+		const audit = makeAudit([
+			{ path: 'claude-memory/p1/a.md' },
+			{ path: 'claude-memory/p1/b.md' },
+			{ path: 'claude-memory/p1/MEMORY.md' },
+			{ path: 'claude-memory/p2/MEMORY.md' },
+			{ path: 'index.md' }
+		]);
+		await writeAudit(audit);
+
+		await deleteNote('claude-memory/p1/a.md', vaultRoot, auditFile);
+
+		const p1Memory = await fs.readFile(join(vaultRoot, 'claude-memory/p1/MEMORY.md'), 'utf8');
+		expect(p1Memory).not.toContain('](a.md)');
+		expect(p1Memory).toContain('- [b](b.md) — catatan b');
+		expect(p1Memory).toContain('# Project 1 Memory');
+
+		const p2Memory = await fs.readFile(join(vaultRoot, 'claude-memory/p2/MEMORY.md'), 'utf8');
+		expect(p2Memory).toContain('- [a](a.md) — catatan a in p2');
+	});
+
+	it('removes variant ](./a.md) but keeps exact-name mismatches like ](ab.md) and ](xa.md)', async () => {
+		await writeNote('claude-memory/p1/a.md', '# A');
+		await writeNote(
+			'claude-memory/p1/MEMORY.md',
+			'- [a](./a.md) — variant dot slash\n- [ab](ab.md) — ab note\n- [xa](xa.md) — xa note\n- [keep](keep.md) — keep this\n'
+		);
+		const audit = makeAudit([
+			{ path: 'claude-memory/p1/a.md' },
+			{ path: 'claude-memory/p1/MEMORY.md' }
+		]);
+		await writeAudit(audit);
+
+		await deleteNote('claude-memory/p1/a.md', vaultRoot, auditFile);
+
+		const content = await fs.readFile(join(vaultRoot, 'claude-memory/p1/MEMORY.md'), 'utf8');
+		expect(content).not.toContain('](./a.md)');
+		expect(content).toContain('- [ab](ab.md) — ab note');
+		expect(content).toContain('- [xa](xa.md) — xa note');
+		expect(content).toContain('- [keep](keep.md) — keep this');
+	});
+
+	it('does not trigger reading MEMORY.md for non-memory notes', async () => {
+		await writeNote('projects/x.md', '# Project X');
+		await writeNote('index.md', '- [[x]]\n');
+		const audit = makeAudit([{ path: 'projects/x.md' }, { path: 'index.md' }]);
+		await writeAudit(audit);
+
+		const readFileSpy = vi.spyOn(fs, 'readFile');
+
+		try {
+			await deleteNote('projects/x.md', vaultRoot, auditFile);
+
+			const readPaths = readFileSpy.mock.calls.map((call) => String(call[0]));
+			const readMemory = readPaths.some((p) => p.endsWith('MEMORY.md') || p.includes('MEMORY.md'));
+			expect(readMemory).toBe(false);
+		} finally {
+			readFileSpy.mockRestore();
+		}
+	});
+
+	it('sums removed lines from both index.md and MEMORY.md into indexLinesRemoved', async () => {
+		await writeNote('claude-memory/p1/a.md', '# A');
+		await writeNote('index.md', '- [[a]]\n- [[a|alias]]\n- keep line in index\n');
+		await writeNote(
+			'claude-memory/p1/MEMORY.md',
+			'- [a](a.md) — standard link\n- [a](./a.md) — dot-slash link\n- keep line in memory\n'
+		);
+		const audit = makeAudit([
+			{ path: 'claude-memory/p1/a.md' },
+			{ path: 'index.md' },
+			{ path: 'claude-memory/p1/MEMORY.md' }
+		]);
+		await writeAudit(audit);
+
+		const result = await deleteNote('claude-memory/p1/a.md', vaultRoot, auditFile);
+		expect(result.indexLinesRemoved).toBe(4); // 2 from index.md + 2 from MEMORY.md
+
+		const indexContent = await fs.readFile(join(vaultRoot, 'index.md'), 'utf8');
+		expect(indexContent).toBe('- keep line in index\n');
+
+		const memoryContent = await fs.readFile(join(vaultRoot, 'claude-memory/p1/MEMORY.md'), 'utf8');
+		expect(memoryContent).toBe('- keep line in memory\n');
+	});
+
+	it('does not error when deleting a memory note a second time', async () => {
+		await writeNote('claude-memory/p1/a.md', '# A');
+		await writeNote('claude-memory/p1/MEMORY.md', '- [a](a.md) — desc\n');
+		const audit = makeAudit([
+			{ path: 'claude-memory/p1/a.md' },
+			{ path: 'claude-memory/p1/MEMORY.md' }
+		]);
+		await writeAudit(audit);
+
+		const firstResult = await deleteNote('claude-memory/p1/a.md', vaultRoot, auditFile);
+		expect(firstResult.indexLinesRemoved).toBe(1);
+
+		// Restore audit item so second delete passes resolveSafe
+		await writeAudit(audit);
+
+		const secondResult = await deleteNote('claude-memory/p1/a.md', vaultRoot, auditFile);
+		expect(secondResult.indexLinesRemoved).toBe(0);
+	});
+
+	it('does not process MEMORY.md when deleting MEMORY.md itself', async () => {
+		await writeNote('claude-memory/p1/MEMORY.md', '# Memory file\n- [a](a.md)\n');
+		const audit = makeAudit([{ path: 'claude-memory/p1/MEMORY.md' }]);
+		await writeAudit(audit);
+
+		const result = await deleteNote('claude-memory/p1/MEMORY.md', vaultRoot, auditFile);
+		expect(result.deleted).toBe('claude-memory/p1/MEMORY.md');
+		await expect(fs.access(join(vaultRoot, 'claude-memory/p1/MEMORY.md'))).rejects.toThrow();
+	});
+
+	it('preserves trailing newline or absence of trailing newline in MEMORY.md', async () => {
+		// With trailing newline
+		await writeNote('claude-memory/p1/a.md', '# A');
+		await writeNote('claude-memory/p1/MEMORY.md', '- [a](a.md) — a\n- [b](b.md) — b\n');
+		const audit1 = makeAudit([
+			{ path: 'claude-memory/p1/a.md' },
+			{ path: 'claude-memory/p1/MEMORY.md' }
+		]);
+		await writeAudit(audit1);
+
+		await deleteNote('claude-memory/p1/a.md', vaultRoot, auditFile);
+		const contentWithNewline = await fs.readFile(join(vaultRoot, 'claude-memory/p1/MEMORY.md'), 'utf8');
+		expect(contentWithNewline).toBe('- [b](b.md) — b\n');
+
+		// Without trailing newline
+		await writeNote('claude-memory/p1/c.md', '# C');
+		await writeNote('claude-memory/p1/MEMORY.md', '- [c](c.md) — c\n- [d](d.md) — d');
+		const audit2 = makeAudit([
+			{ path: 'claude-memory/p1/c.md' },
+			{ path: 'claude-memory/p1/MEMORY.md' }
+		]);
+		await writeAudit(audit2);
+
+		await deleteNote('claude-memory/p1/c.md', vaultRoot, auditFile);
+		const contentNoNewline = await fs.readFile(join(vaultRoot, 'claude-memory/p1/MEMORY.md'), 'utf8');
+		expect(contentNoNewline).toBe('- [d](d.md) — d');
 	});
 });
 
