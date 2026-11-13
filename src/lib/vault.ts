@@ -302,7 +302,8 @@ export async function listUnaudited(audit: Audit, root?: string): Promise<string
 	const allMd = await collectMd(vaultRoot);
 	return allMd
 		.map((abs) => toRelPath(abs, vaultRoot))
-		.filter((rel) => rel !== 'index.md' && !auditedPaths.has(rel)); // index.md = pintu masuk vault, bukan objek audit
+		// index.md dan MEMORY.md = file indeks, bukan objek audit
+		.filter((rel) => rel !== 'index.md' && basename(rel) !== 'MEMORY.md' && !auditedPaths.has(rel));
 }
 
 export async function deleteNote(

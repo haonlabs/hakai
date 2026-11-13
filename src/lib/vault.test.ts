@@ -206,6 +206,14 @@ describe('listUnaudited', () => {
 		expect(result).not.toContain('a.md');
 	});
 
+	it('ignores index files (index.md, MEMORY.md)', async () => {
+		await writeNote('a.md', 'A');
+		await writeNote('index.md', 'I');
+		await writeNote('claude-memory/p1/MEMORY.md', 'M');
+		const audit = makeAudit([{ path: 'a.md' }]);
+		expect(await listUnaudited(audit, vaultRoot)).toEqual([]);
+	});
+
 	it('ignores .obsidian/ directory', async () => {
 		await writeNote('a.md', 'A');
 		const obsidianDir = join(vaultRoot, '.obsidian');
