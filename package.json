@@ -1,0 +1,38 @@
+{
+	"name": "hakai",
+	"version": "0.0.1",
+	"private": true,
+	"type": "module",
+	"imports": {
+		"#lib": "./src/lib/index.js",
+		"#lib/*": "./src/lib/*"
+	},
+	"scripts": {
+		"dev": "vite dev --host 127.0.0.1",
+		"build": "vite build",
+		"preview": "vite preview",
+		"start": "HOST=127.0.0.1 node build",
+		"test": "vitest run --passWithNoTests",
+		"prepare": "svelte-kit sync || echo ''",
+		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
+	},
+	"devDependencies": {
+		"@sveltejs/adapter-auto": "^8.0.0",
+		"@sveltejs/adapter-node": "^6.0.2",
+		"@sveltejs/kit": "^3.0.0",
+		"@sveltejs/vite-plugin-svelte": "^7.2.0",
+		"@tailwindcss/vite": "^4.3.5",
+		"@vitest/coverage-v8": "^5.1.0",
+		"svelte": "^5.57.2",
+		"svelte-check": "^4.6.0",
+		"tailwindcss": "^4.3.5",
+		"typescript": "^6.0.3",
+		"vite": "^8.3.0",
+		"vitest": "^5.1.0"
+	},
+	"dependencies": {
+		"isomorphic-dompurify": "^4.7.0",
+		"marked": "^18.2.0"
+	}
+}

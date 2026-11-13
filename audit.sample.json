@@ -1,0 +1,24 @@
+{
+  "generatedAt": "2026-11-13T03:00:00.000Z",
+  "vaultRoot": "/path/ke/vault",
+  "items": [
+    {
+      "path": "projects/hakai.md",
+      "verdict": "keep",
+      "reason": "Dokumen aktif, dirujuk dari banyak catatan.",
+      "reviewed": "2026-11-13"
+    },
+    {
+      "path": "archive/old-ideas-2024.md",
+      "verdict": "usang",
+      "reason": "Konten sudah tidak relevan, tidak ada backlink.",
+      "reviewed": null
+    },
+    {
+      "path": "inbox/meeting-notes-copy.md",
+      "verdict": "duplikat",
+      "reason": "Konten identik dengan projects/meeting-notes.md.",
+      "reviewed": null
+    }
+  ]
+}
