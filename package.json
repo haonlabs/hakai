@@ -13,11 +13,13 @@
 		"preview": "vite preview",
 		"start": "HOST=127.0.0.1 node build",
 		"test": "vitest run --passWithNoTests",
+		"test:e2e": "playwright test",
 		"prepare": "svelte-kit sync || echo ''",
 		"check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch"
 	},
 	"devDependencies": {
+		"@playwright/test": "^1.65.0",
 		"@sveltejs/adapter-auto": "^8.0.0",
 		"@sveltejs/adapter-node": "^6.0.2",
 		"@sveltejs/kit": "^3.0.0",
