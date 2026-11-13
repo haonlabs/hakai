@@ -71,7 +71,7 @@ Mobile tidak jadi target (tool lokal); layout satu kolom saja bila sempit.
 1. `realpath(target)` harus diawali `realpath(VAULT_ROOT)` (menangani symlink `claude-memory/`; target symlink yang keluar vault → hapus link saja, bukan file tujuan).
 2. Hanya `.md`.
 3. Path harus ada di `audit.json`.
-4. Setelah hapus: buang baris `index.md` yang memuat `[[nama]]`; tulis ulang `index.md` atomik (tulis file temp lalu rename).
+4. Setelah hapus: buang baris `index.md` yang memuat `[[nama]]` atau link Markdown `](nama.md)`; untuk catatan di `claude-memory/<project>/` lakukan hal yang sama pada `claude-memory/<project>/MEMORY.md` (pointer memory memakai link Markdown). Tulis ulang atomik (tulis file temp lalu rename). Ditambah 13 Nov 2026 (brief 06).
 
 ## Pengujian
 - Unit test `lib/vault.ts`: guard path (`../`, symlink keluar, bukan `.md`), backlinks, pembersihan `index.md` (vitest, bawaan SvelteKit; fixture vault kecil di temp dir).

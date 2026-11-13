@@ -2,7 +2,7 @@
 
 Tool web lokal untuk mereview hasil audit catatan vault Obsidian: tiap catatan diberi verdict (`keep` / `usang` / `duplikat`) oleh Claude, lalu kamu memutuskan **Keep** atau **Delete**.
 
-> **Delete menghapus file secara permanen** (tanpa trash/archive) dan membuang baris `[[link]]` ke catatan itu di `index.md`. Tidak ada undo. Konfirmasi di UI dan guard path di server adalah satu-satunya pengaman; pastikan vault kamu di-backup (mis. git atau Time Machine).
+> **Delete menghapus file secara permanen** (tanpa trash/archive) dan membuang baris yang menautkannya di `index.md` (wikilink `[[nama]]` atau link Markdown `](nama.md)`). Untuk catatan di `claude-memory/<project>/`, baris pointer di `MEMORY.md` project yang sama ikut dibuang. Tidak ada undo. Konfirmasi di UI dan guard path di server adalah satu-satunya pengaman; pastikan vault kamu di-backup (mis. git atau Time Machine).
 
 ## Prasyarat
 
