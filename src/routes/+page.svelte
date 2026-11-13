@@ -18,7 +18,25 @@
 	let deleteDialog = $state<HTMLDialogElement>();
 	let bulkDialog = $state<HTMLDialogElement>();
 	let search: HTMLInputElement;
-	let markdown = $derived(data.detail ? DOMPurify.sanitize(marked.parse(data.detail.content) as string) : '');
+	const renderer = new marked.Renderer();
+	renderer.link = ({ href, title, text }) => {
+		if (/^wiki:/i.test(href)) return `<span class="wiki-chip">${text}</span>`;
+		return `<a href="${href}"${title ? ` title="${title}"` : ''}>${text}</a>`;
+	};
+	const wikilinkExtension = {
+		name: 'wikilink',
+		level: 'inline' as const,
+		start(src: string) { return src.indexOf('[['); },
+		tokenizer(src: string) {
+			const match = /^\[\[([^\]]+)\]\]/.exec(src);
+			if (!match) return undefined;
+			const [target, alias] = match[1].split('|', 2);
+			const label = (alias ?? target).split('#', 1)[0].trim();
+			return { type: 'link', raw: match[0], href: 'wiki:', title: null, text: label };
+		}
+	};
+	marked.use({ extensions: [wikilinkExtension] });
+	let markdown = $derived(data.detail ? DOMPurify.sanitize(marked.parse(data.detail.content, { renderer }) as string, { ADD_ATTR: ['class'] }) : '');
 	const params = $derived(new URLSearchParams(page.url.search));
 	const verdict = $derived(params.get('verdict') ?? 'unreviewed');
 	const sources = $derived((params.get('source') ?? 'vault,memory').split(','));
@@ -40,6 +58,13 @@
 	function update(key: string, value: string | null) {
 		const next = new URLSearchParams(page.url.search);
 		if (value === null || value === '') next.delete(key); else next.set(key, value);
+		void goto(`/?${next}`, { reset: false });
+	}
+	function chooseVerdict(value: string) {
+		const next = new URLSearchParams(page.url.search);
+		next.set('verdict', value);
+		if (value === 'all') next.set('hideReviewed', '0');
+		if (value === 'unreviewed') next.set('hideReviewed', '1');
 		void goto(`/?${next}`, { reset: false });
 	}
 	function openNote(path: string) { update('note', path); }
@@ -96,12 +121,12 @@
 		<a class="brand" href="/" aria-label="Hakai beranda"><span class="brand-mark">破</span><span><strong>Hakai</strong><small>破壊 · Vault audit</small></span></a>
 		<section class="side-section"><h2>Verdict</h2>
 			{#each [{ key: 'unreviewed', label: 'Belum ditinjau' }, { key: 'usang', label: 'Usang' }, { key: 'duplikat', label: 'Duplikat' }, { key: 'keep', label: 'Keep' }, { key: 'all', label: 'Semua' }] as option}
-				<button class:active={verdict === option.key} class="filter-link" onclick={() => update('verdict', option.key)}><span>{option.label}</span><small>{countsFor(option.key)}</small></button>
+				<button class:active={verdict === option.key} class="filter-link" onclick={() => chooseVerdict(option.key)}><span>{option.label}</span><small>{countsFor(option.key)}</small></button>
 			{/each}
 		</section>
 		<section class="side-section"><h2>Sumber</h2>
-			{#each [{ key: 'vault', label: 'vault', count: data.counts.all - data.items.filter((i) => source(i.path) === 'memory').length }, { key: 'memory', label: 'claude-memory', count: data.items.filter((i) => source(i.path) === 'memory').length }] as option}
-				<label class="check-line"><input type="checkbox" checked={sources.includes(option.key)} onchange={() => toggleSource(option.key)} /><span>{option.label}</span><small>{option.count}</small></label>
+			{#each [{ key: 'vault', label: 'vault' }, { key: 'memory', label: 'claude-memory' }] as option}
+				<label class="check-line"><input type="checkbox" checked={sources.includes(option.key)} onchange={() => toggleSource(option.key)} /><span>{option.label}</span></label>
 			{/each}
 		</section>
 		<section class="side-section"><h2>Tampilan</h2><label class="check-line"><input type="checkbox" checked={hideReviewed} onchange={(e) => update('hideReviewed', e.currentTarget.checked ? '1' : '0')} /><span>Sembunyikan ditinjau</span></label></section>
