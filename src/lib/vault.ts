@@ -8,7 +8,7 @@
  *  - the path must exist in audit.json
  */
 
-import { promises as fs } from 'node:fs';
+import { promises as fs, type Dirent } from 'node:fs';
 import { join, basename, dirname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { getVaultRoot, getAuditFile } from './config.js';
@@ -137,7 +137,7 @@ async function resolveSafe(relPath: string, root: string, audit: Audit): Promise
 /** Recursively collect all .md files under dir, skipping .obsidian/ */
 async function collectMd(dir: string): Promise<string[]> {
 	const result: string[] = [];
-	let entries: Awaited<ReturnType<typeof fs.readdir>>;
+	let entries: Dirent[];
 	try {
 		entries = await fs.readdir(dir, { withFileTypes: true });
 	} catch {
