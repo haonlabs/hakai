@@ -68,13 +68,12 @@
 		void goto(`/?${next}`, { reset: false });
 	}
 	function openNote(path: string) { update('note', path); }
-	function ordered(items: AuditItem[]) {
-		const index = items.findIndex((item) => item.path === data.detail?.item.path);
-		return index < 0 ? items[0] : items[(index + 1) % items.length];
-	}
-	function nextAfterAction() {
-		const next = ordered(data.items.filter((item) => item.path !== data.detail?.item.path));
-		if (next) openNote(next.path);
+	// Pindah ke baris berikutnya (urutan daftar lama) yang tidak ikut diproses; kosong → lepas pilihan.
+	function nextAfterAction(gone: string[]) {
+		const at = Math.max(0, data.items.findIndex((item) => item.path === data.detail?.item.path));
+		const next = data.items.slice(at).find((item) => !gone.includes(item.path))
+			?? data.items.findLast((item) => !gone.includes(item.path));
+		update('note', next?.path ?? null);
 	}
 	function beginDelete(item: AuditItem) { pendingDelete = item; deleteDialog?.showModal(); }
 	function showToast(message: string) { notice = message; window.setTimeout(() => notice = '', 4500); }
@@ -85,9 +84,11 @@
 			if (resultData?.message) showToast(resultData.message);
 			else if (resultData?.failed?.length) showToast(resultData.failed.map((x: any) => x.message).join(' · '));
 			else showToast('Perubahan tersimpan.');
+			const bulk = Array.isArray(resultData?.kept) || Array.isArray(resultData?.deleted);
+			const gone = bulk ? selected : data.detail ? [data.detail.item.path] : [];
 			selected = [];
 			deleteDialog?.close(); bulkDialog?.close();
-			nextAfterAction();
+			nextAfterAction(gone);
 		}
 	}
 	const enhanced = () => async ({ result, update }: { result: any; update: (options?: { reset?: boolean }) => Promise<void> }) => { onSubmit(result); await update({ reset: false }); };
@@ -134,7 +135,7 @@
 	</aside>
 	<main class="workspace">
 		<header class="topbar"><div><h1>Review catatan</h1><p>Audit {date(data.audit.generatedAt)} · {data.counts.all} catatan · {data.counts.usang} usang · {data.counts.duplikat} duplikat</p></div><label class="search"><span class="sr-only">Cari nama catatan</span><input bind:this={search} value={query} oninput={(e) => update('q', e.currentTarget.value)} placeholder="Cari nama catatan…" /><kbd>/</kbd></label></header>
-		{#if data.audit.stale || data.audit.unaudited > 0}<div class="audit-warning"><strong>!</strong> Audit sudah {Math.max(0, Math.floor((Date.now() - new Date(data.audit.generatedAt).getTime()) / 86400000))} hari dan {data.audit.unaudited} file .md belum dinilai. Minta Claude audit ulang.</div>{/if}
+		{#if data.audit.stale || data.audit.unaudited > 0}<div class="audit-warning"><strong>!</strong> {#if data.audit.stale}Audit sudah {Math.max(0, Math.floor((Date.now() - new Date(data.audit.generatedAt).getTime()) / 86400000))} hari{#if data.audit.unaudited > 0} dan {data.audit.unaudited} file .md belum dinilai{/if}.{:else}{data.audit.unaudited} file .md belum dinilai.{/if} Minta Claude audit ulang.</div>{/if}
 		{#if data.detailError}<div class="toast error" role="alert">{data.detailError}</div>{/if}
 		<div class="list-area"><div class="table-toolbar"><span>{data.items.length} dari {data.counts.unreviewed} belum ditinjau</span><div><button class="button" disabled={!selected.length} onclick={() => { bulkOp = 'keep'; confirmValue = ''; bulkDialog?.showModal(); }}>Keep terpilih</button><button class="button" disabled={!selected.length} onclick={() => { bulkOp = 'delete'; confirmValue = ''; bulkDialog?.showModal(); }}>Delete terpilih</button></div></div>
 			{#if data.items.length}

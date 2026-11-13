@@ -243,7 +243,7 @@ export async function listUnaudited(audit: Audit, root?: string): Promise<string
 	const allMd = await collectMd(vaultRoot);
 	return allMd
 		.map((abs) => toRelPath(abs, vaultRoot))
-		.filter((rel) => !auditedPaths.has(rel));
+		.filter((rel) => rel !== 'index.md' && !auditedPaths.has(rel)); // index.md = pintu masuk vault, bukan objek audit
 }
 
 export async function deleteNote(
